@@ -22,10 +22,13 @@ class TutorialPage:
             return func
         return decorator
 
-    async def handle_request(self, request=None, session=None, form_data=None):
+    async def handle_request(self, request, form_data=None):
         step = int(request.query_params.get('step', 1))
         if step in self.steps:
-            return await self.steps[step](request=request, session=session, form_data=form_data)
+            if form_data is not None:
+                return await self.steps[step](request, form_data)
+            else:
+                return await self.steps[step](request)
         else:
             return P(f"Error: Step {step} not found")
 

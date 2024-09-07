@@ -81,13 +81,11 @@ async def page_handler(module_name: str, request: Request):
     if page is None:
         return P(f"Error: Module {module_name} not found")
     
-    session = request.session    
-    
     if request.method == 'GET':
-        content = await page.handle_request(request=request, session=session)
+        content = await page.handle_request(request)
     elif request.method == 'POST':
         form_data = await request.form()
-        content = await page.handle_request(request=request, session=session, form_data=form_data)
+        content = await page.handle_request(request, form_data)
     else:
         return P(f"Error: Unsupported method {request.method}")
 

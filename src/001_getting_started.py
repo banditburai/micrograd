@@ -5,7 +5,7 @@ from starlette.requests import Request
 page = TutorialPage("001_getting_started", "Getting Started")
 
 @page.step(1)
-async def step1(request: Request, session, form_data=None):
+async def step1(request: Request, form_data=None):
     return Div(
         H1("Welcome to Getting Started", cls="text-3xl font-bold mb-4 text-gray-900 dark:text-white"),
         P("This is the first step of Getting Started.", cls="mb-4 text-gray-700 dark:text-gray-300"),
@@ -14,13 +14,10 @@ async def step1(request: Request, session, form_data=None):
     )
 
 @page.step(2)
-async def step2(request: Request, session, form_data=None):
+async def step2(request: Request, form_data=None):
     if form_data and 'name' in form_data:
-        if session is not None:
-            session['name'] = form_data['name']
-        else:
-            print("Warning: Session is None, unable to store name")
-    name = session.get('name', 'Unknown') if session else 'Unknown'
+        request.session['name'] = form_data['name']
+    name = request.session.get('name', 'Unknown')
     return Div(
         H2("Welcome!", cls="text-2xl font-semibold mb-3 text-gray-900 dark:text-white"),
         P(f"Hello, {name}! You've completed the first step of Getting Started.", cls="mb-4 text-gray-700 dark:text-gray-300"),
@@ -29,8 +26,8 @@ async def step2(request: Request, session, form_data=None):
     )
 
 @page.step(3)
-async def step3(request: Request, session, form_data=None):
-    name = session.get('name', 'Unknown') if session else 'Unknown'
+async def step3(request: Request, form_data=None):
+    name = request.session.get('name', 'Unknown')
     return Div(
         H2("Final Step", cls="text-2xl font-semibold mb-3 text-gray-900 dark:text-white"),
         P(f"This is the final step of Getting Started, {name}.", cls="mb-4 text-gray-700 dark:text-gray-300"),
