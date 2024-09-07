@@ -1,8 +1,8 @@
 from fasthtml.common import *
-from src.page_utils import TutorialPage, create_form, create_next_button
+from src.page_utils import TutorialPage, create_form, create_next_button, create_page_navigation
 from starlette.requests import Request
 
-page = TutorialPage("001_getting_started", "Getting Started")
+page = TutorialPage(1, "Getting Started", "getting-started")
 
 @page.step(1)
 async def step1(request: Request, form_data=None):
@@ -28,10 +28,19 @@ async def step2(request: Request, form_data=None):
 @page.step(3)
 async def step3(request: Request, form_data=None):
     name = request.session.get('name', 'Unknown')
-    return Div(
+    content = [
         H2("Final Step", cls="text-2xl font-semibold mb-3 text-gray-900 dark:text-white"),
         P(f"This is the final step of Getting Started, {name}.", cls="mb-4 text-gray-700 dark:text-gray-300"),
-        A("Next Page", href="/002_page2", hx_get="/002_page2", hx_target="#content", hx_push_url="/002_page2", 
-          cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block"),
-        cls="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 max-w-md mx-auto"
-    )
+        P("In this section, we covered:", cls="mb-4 text-gray-700 dark:text-gray-300"),
+        Ul(
+            Li("Introduction to the tutorial", cls="mb-2"),
+            Li("Personalizing the experience with your name", cls="mb-2"),
+            Li("Navigating through multiple steps", cls="mb-2"),
+            cls="list-disc list-inside mb-4 text-gray-700 dark:text-gray-300"
+        ),
+        P("In the next section, we'll dive into some basic concepts of machine learning.", 
+          cls="mb-4 text-gray-700 dark:text-gray-300"),
+        create_page_navigation(request, page)
+    ]
+    
+    return Div(*content, cls="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 max-w-md mx-auto")

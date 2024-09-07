@@ -1,19 +1,21 @@
+import importlib
+import pkgutil
 from fasthtml.common import *
-from functools import wraps
 from dataclasses import dataclass
-import os
-import importlib.util
-import sys
 
 @dataclass
 class TutorialPage:
-    file_name: str
+    page_number: int
     display_name: str
+    slug: str
+    published: bool = True
     steps: dict = None
 
-    def __init__(self, file_name, display_name):
-        self.file_name = file_name
+    def __init__(self, page_number, display_name, slug, published=True):
+        self.page_number = page_number
         self.display_name = display_name
+        self.slug = slug
+        self.published = published
         self.steps = {}
 
     def step(self, step_number):
@@ -45,28 +47,34 @@ def create_form(action, **fields):
 def create_next_button(next_step):
     return A("Next", href=f"?step={next_step}", hx_get=f"?step={next_step}", hx_target="#content", hx_push_url="true", cls="button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block")
 
-def get_tutorial_pages(directory='src'):
+def create_page_navigation(request, current_page):
+    pages = list(request.app.state.page_modules.values())
+    current_index = next(i for i, p in enumerate(pages) if p.slug == current_page.slug)
+    next_page = pages[current_index + 1] if current_index + 1 < len(pages) else None
+    
+    if next_page:
+        return A("Next Page", href=f"/{next_page.slug}", hx_get=f"/{next_page.slug}", hx_target="#content", hx_push_url=f"/{next_page.slug}", 
+                 cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block")
+    else:
+        return P(f"Congratulations! You've completed the {current_page.display_name} section.", 
+                 cls="text-lg font-semibold text-green-600 dark:text-green-400")
+
+def get_tutorial_pages():
+    from src import tutorials
     page_modules = {}
-    base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sys.path.insert(0, base_path)
     
-    for filename in sorted(os.listdir(directory)):
-        if filename.endswith('.py') and filename[0].isdigit():
-            module_name = f"src.{filename[:-3]}"
-            file_path = os.path.join(base_path, directory, filename)
-            try:
-                spec = importlib.util.spec_from_file_location(module_name, file_path)
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
-                
-                page = getattr(module, 'page', None)
-                if page and isinstance(page, TutorialPage):
-                    page_modules[page.file_name] = page
-                    print(f"Successfully imported {module_name}")
-                else:
-                    print(f"Warning: {module_name} does not contain a valid TutorialPage object")
-            except Exception as e:
-                print(f"Error importing {module_name}: {str(e)}")
+    for _, module_name, _ in pkgutil.iter_modules(tutorials.__path__):
+        module = importlib.import_module(f'src.tutorials.{module_name}')
+        if hasattr(module, 'page') and isinstance(module.page, TutorialPage):
+            if module.page.published:
+                page_modules[module.page.slug] = module.page
+                print(f"Successfully imported {module_name}")
+            else:
+                print(f"Page {module_name} is not published")
+        else:
+            print(f"Warning: {module_name} does not contain a valid TutorialPage object")
     
-    return page_modules
+    return dict(sorted(page_modules.items(), key=lambda item: item[1].page_number))
+
+def get_last_page(page_modules):
+    return list(page_modules.values())[-1] if page_modules else None

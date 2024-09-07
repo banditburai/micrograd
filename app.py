@@ -3,7 +3,7 @@ import traceback
 from starlette.responses import PlainTextResponse
 from fasthtml.svg import *
 from components.theme_toggle import ThemeToggle, fouc_script, dark_mode_toggle_script
-from src.page_utils import get_tutorial_pages
+from src.page_utils import get_tutorial_pages, get_last_page
 
 tailwindLink = Link(rel="stylesheet", href="assets/output.css", type="text/css")
 app, rt = fast_app(
@@ -24,18 +24,22 @@ app, rt = fast_app(
 )
 
 # Dynamically import all page modules
-page_modules = get_tutorial_pages('src')
+page_modules = get_tutorial_pages()
+last_page = get_last_page(page_modules)
+
+# Store page_modules in app.state
+app.state.page_modules = page_modules
 
 def CommonHeader():
     return Header(
         Div(
-            Div(
-                A("Tutorial", href="/", hx_get="/", hx_target="#content", hx_push_url="/", 
+            Div(                
+                A("Micrograd", href="/", hx_get="/", hx_target="#content", hx_push_url="/", 
                   cls="text-2xl font-bold text-gray-900 dark:text-white"),
                 cls="flex-grow"
             ),
             ThemeToggle(),
-            cls="flex justify-between items-center mb-4 p-4 bg-white dark:bg-gray-800 shadow"
+            cls="flex justify-between items-center mb-4 p-6 bg-gradient-to-b from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent shadow-md"
         )
     )
 
@@ -43,12 +47,12 @@ def create_nav():
     return Nav(
         Ul(
             *[Li(A(page.display_name, 
-                   href=f"/{page.file_name}", 
-                   hx_get=f"/{page.file_name}", 
+                   href=f"/{page.slug}", 
+                   hx_get=f"/{page.slug}", 
                    hx_target="#content", 
-                   hx_push_url=f"/{page.file_name}", 
+                   hx_push_url=f"/{page.slug}", 
                    cls="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"))
-              for page in sorted(page_modules.values(), key=lambda p: p.file_name)],
+              for page in sorted(page_modules.values(), key=lambda p: p.page_number)],
             cls="flex flex-wrap space-x-2 md:space-x-4"
         ),
         cls="p-4 bg-gray-100 dark:bg-gray-700 overflow-x-auto"
@@ -58,28 +62,45 @@ def create_layout(content, title):
     return Div(
         CommonHeader(),
         create_nav(),
-        Main(Div(content, id="content", cls="p-4 max-w-4xl mx-auto")),
-        Footer(P("© 2024 Tutorial", cls="text-center p-4 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300")),
+        Main(Div(content, id="content", cls="p-4 max-w-4xl mx-auto flex-grow")),
+        Footer(
+            P("© 2024 Tutorial", cls="text-center p-6 text-gray-600 dark:text-gray-300"),
+            cls="mt-auto bg-gradient-to-t from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent h-24"
+        ),
         cls="min-h-screen flex flex-col"
     )
 
 @rt('/')
 def get(request):
+    if not page_modules:
+        return Div(
+            H1("No Tutorial Pages Available", cls="text-3xl font-bold mb-4 text-gray-900 dark:text-white"),
+            P("There are currently no published tutorial pages.", cls="mb-4 text-gray-700 dark:text-gray-300"),
+            cls="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 max-w-md mx-auto"
+        )
+    
+    first_page = sorted(page_modules.values(), key=lambda p: p.page_number)[0]
     home_content = Article(
-        H1("Tutorial Home", cls="text-3xl font-bold mb-4 text-gray-900 dark:text-white"),
-        P("Welcome to the tutorial. Click 'Start' to begin.", cls="mb-4 text-gray-700 dark:text-gray-300"),
-        A("Start", href="/001_getting_started", hx_get="/001_getting_started", hx_target="#content", hx_push_url="/001_getting_started", 
-        cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block"),        
+        H1("Micrograd Tutorial", cls="text-3xl font-bold mb-4 text-gray-900 dark:text-white"),
+        P("Let's get started.", cls="mb-4 text-gray-300 dark:text-gray-300"),
+        A("Start", 
+          href=f"/{first_page.slug}", 
+          cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block"),
+        hx_get=f"/{first_page.slug}",
+        hx_target="#content",
+        hx_push_url=f"/{first_page.slug}",
+        hx_trigger="click",
+        cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-6 px-8 rounded cursor-pointer transition duration-300 flex flex-col items-center justify-center max-w-md mx-auto",
     )
     if request.headers.get('HX-Request') == 'true':
         return home_content
-    return Title("Tutorial Home"), create_layout(home_content, "Tutorial Home")
+    return Title("Micrograd Tutorial"), create_layout(home_content, "Tutorial Home")
 
-@rt('/{module_name}')
-async def page_handler(module_name: str, request: Request):
-    page = page_modules.get(module_name)
+@rt('/{slug}')
+async def page_handler(slug: str, request: Request):
+    page = page_modules.get(slug)
     if page is None:
-        return P(f"Error: Module {module_name} not found")
+        return create_404_page()
     
     if request.method == 'GET':
         content = await page.handle_request(request)
@@ -89,10 +110,19 @@ async def page_handler(module_name: str, request: Request):
     else:
         return P(f"Error: Unsupported method {request.method}")
 
-    page_title = f"Tutorial - {page.display_name}"
+    page_title = f"{page.display_name}"
     if request.headers.get('HX-Request') == 'true':
         return content
     return Title(page_title), create_layout(content, page_title)
+
+def create_404_page():
+    return Div(
+        H1("404 - Page Not Found", cls="text-3xl font-bold mb-4 text-gray-900 dark:text-white"),
+        P("The page you're looking for doesn't exist.", cls="mb-4 text-gray-700 dark:text-gray-300"),
+        A("Go Home", href="/", hx_get="/", hx_target="#content", hx_push_url="/", 
+          cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block"),
+        cls="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 max-w-md mx-auto"
+    )
 
 @app.exception_handler(Exception)
 async def exception_handler(request, exc):
