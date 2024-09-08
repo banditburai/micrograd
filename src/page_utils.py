@@ -39,13 +39,20 @@ def create_form(action, **fields):
         *[Label(f"{label}: ", Input(type=type, name=name, required=required, cls="input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"))
           for name, (type, label, required) in fields.items()],
         Input(type="submit", value="Submit", cls="button w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mt-4"),
-        action=action,
+        hx_post=action,
         method="post",
+        hx_target="#content",
+        hx_push_url="true",
         cls="space-y-4"
     )
 
 def create_next_button(next_step):
-    return A("Next", href=f"?step={next_step}", hx_get=f"?step={next_step}", hx_target="#content", hx_push_url="true", cls="button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block")
+    return A("Next", 
+             href=f"?step={next_step}", 
+             hx_get=f"?step={next_step}", 
+             hx_target="#content", 
+             hx_push_url="true", 
+             cls="button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block")
 
 def create_page_navigation(request, current_page):
     pages = list(request.app.state.page_modules.values())
