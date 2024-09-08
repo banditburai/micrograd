@@ -29,7 +29,6 @@ app, rt = fast_app(
 page_modules = get_tutorial_pages()
 last_page = get_last_page(page_modules)
 
-# Store page_modules in app.state
 app.state.page_modules = page_modules
 
 def CommonHeader():
@@ -44,8 +43,9 @@ def CommonHeader():
                 ThemeToggle(),
                 cls="hidden md:block"  # Hide on mobile, show on larger screens
             ),
-            cls="flex justify-between items-center p-3 bg-gradient-to-b from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent shadow-md"
-        )
+            cls="flex justify-between items-center h-16 px-4 bg-gradient-to-b from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent shadow-md"
+        ),
+        cls="h-16"  # Fixed height for the header
     )
 
 def create_nav(current_slug=None):
@@ -63,7 +63,7 @@ def create_nav(current_slug=None):
         # Desktop navigation
         Nav(
             Ul(*nav_items, cls="hidden md:flex md:space-x-2"),
-            cls="nav-container md:block py-2 px-4"
+            cls="nav-container md:block px-4 hover:bg-gray-100 dark:hover:bg-gray-800 md:hover:bg-gray-100 md:dark:hover:bg-gray-800"
         ),
         # Mobile navigation (sidebar)
         Div(
@@ -81,9 +81,10 @@ def create_nav(current_slug=None):
                 ),
                 cls="sidebar md:hidden"
             ),
-            cls="md:hidden"  # Only show on mobile
+            cls="md:hidden absolute top-0 right-0 m-4"  # Position hamburger menu
         ),
-        id="navigation"
+        id="navigation",
+        cls="h-12 md:h-12"  # Fixed height on both mobile and desktop
     )
 
 def create_layout(content=None, current_slug=None):

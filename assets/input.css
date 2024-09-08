@@ -108,6 +108,15 @@
   }
 }
 
+@media (max-width: 767px) {
+    .nav-container:hover {
+        background-color: transparent !important;
+    }
+    .nav-container:hover .nav-link {
+        color: inherit !important;
+    }
+}
+
 @layer components {
   .nav-container {
     @apply p-4 bg-transparent transition-all duration-300 ease-in-out;
@@ -132,6 +141,7 @@
   .nav-link.selected {
     @apply border-b-2 border-gray-900 dark:border-gray-100;
   }
+
 }
 
 
