@@ -1,7 +1,8 @@
 import importlib
 import pkgutil
 from fasthtml.common import *
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from src.markdown_utils import parse_markdown_file, markdown_to_fasthtml
 
 @dataclass
 class TutorialPage:
@@ -9,14 +10,16 @@ class TutorialPage:
     display_name: str
     slug: str
     published: bool = True
-    steps: dict = None
+    markdown_file: str = None
+    chunks: dict = field(default_factory=dict)
+    steps: dict = field(default_factory=dict)
 
-    def __init__(self, page_number, display_name, slug, published=True):
-        self.page_number = page_number
-        self.display_name = display_name
-        self.slug = slug
-        self.published = published
-        self.steps = {}
+    def __post_init__(self):
+        if self.markdown_file:
+            self._load_markdown()
+
+    def _load_markdown(self):
+        self.chunks = parse_markdown_file(self.markdown_file)
 
     def step(self, step_number):
         def decorator(func):
@@ -27,32 +30,42 @@ class TutorialPage:
     async def handle_request(self, request, form_data=None):
         step = int(request.query_params.get('step', 1))
         if step in self.steps:
-            if form_data is not None:
-                return await self.steps[step](request, form_data)
-            else:
-                return await self.steps[step](request)
+            return await self.steps[step](request, form_data)
         else:
             return P(f"Error: Step {step} not found")
 
+    def get_chunk_content(self, chunk_number: int, cls: str = "") -> List[FT]:
+        if chunk_number in self.chunks:
+            return markdown_to_fasthtml(self.chunks[chunk_number], cls)
+        else:
+            return [P(f"Error: Chunk {chunk_number} not found")]
+
+def create_form_field(name, type, label, required):
+    field_cls = "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+    if type == "textarea":
+        return Label(f"{label}: ", Textarea(name=name, required=required, cls=field_cls))
+    else:
+        return Label(f"{label}: ", Input(type=type, name=name, required=required, cls=field_cls))
+
 def create_form(action, **fields):
     return Form(
-        *[Label(f"{label}: ", Input(type=type, name=name, required=required, cls="input w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"))
-          for name, (type, label, required) in fields.items()],
-        Input(type="submit", value="Submit", cls="button w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mt-4"),
-        hx_post=action,
+        *[create_form_field(name, *field_info) for name, field_info in fields.items()],
+        Input(type="submit", value="Submit", cls="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mt-4"),
+        action=action,
         method="post",
-        hx_target="#content",
-        hx_push_url="true",
         cls="space-y-4"
     )
 
+def create_navigation_link(text, href, hx_get, hx_target, hx_push_url):
+    return A(text, 
+             href=href, 
+             hx_get=hx_get, 
+             hx_target=hx_target, 
+             hx_push_url=hx_push_url, 
+             cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block")
+
 def create_next_button(next_step):
-    return A("Next", 
-             href=f"?step={next_step}", 
-             hx_get=f"?step={next_step}", 
-             hx_target="#content", 
-             hx_push_url="true", 
-             cls="button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block")
+    return create_navigation_link("Next", f"?step={next_step}", f"?step={next_step}", "#content", "true")
 
 def create_page_navigation(request, current_page):
     pages = list(request.app.state.page_modules.values())
@@ -60,11 +73,15 @@ def create_page_navigation(request, current_page):
     next_page = pages[current_index + 1] if current_index + 1 < len(pages) else None
     
     if next_page:
-        return A("Next Page", href=f"/{next_page.slug}", hx_get=f"/{next_page.slug}", hx_target="#content", hx_push_url=f"/{next_page.slug}", 
-                 cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block")
+        return create_navigation_link("Next Page", f"/{next_page.slug}", f"/{next_page.slug}", "#content", f"/{next_page.slug}")
     else:
-        return P(f"Congratulations! You've completed the {current_page.display_name} section.", 
-                 cls="text-lg font-semibold text-green-600 dark:text-green-400")
+        return Div(
+            P(f"Congratulations! You've completed the {current_page.display_name} section.", 
+              cls="text-lg font-semibold text-green-600 dark:text-green-400"),
+            A("Back to Home", href="/", hx_get="/", hx_target="#content", hx_push_url="/",
+              cls="mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block"),
+            cls="text-center"
+        )
 
 def get_tutorial_pages():
     from src import tutorials
