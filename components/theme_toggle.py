@@ -31,5 +31,12 @@ def ThemeToggle():
             cls="p-2 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center",
             onclick="toggleDarkMode()",
         ),
-        id="theme-toggle-wrapper"
+        id="theme-toggle-wrapper",
+        cls="flex items-center"
+    )
+
+def HamburgerMenu():
+    return Label(
+        Input(type="checkbox"),
+        cls="hamburger-menu"
     )

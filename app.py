@@ -2,7 +2,7 @@ from fasthtml.common import *
 import traceback
 from starlette.responses import PlainTextResponse
 from fasthtml.svg import *
-from components.theme_toggle import ThemeToggle, fouc_script, dark_mode_toggle_script
+from components.theme_toggle import ThemeToggle, HamburgerMenu, fouc_script, dark_mode_toggle_script
 from src.page_utils import get_tutorial_pages, get_last_page
 
 tailwindLink = Link(rel="stylesheet", href="assets/output.css", type="text/css")
@@ -12,12 +12,13 @@ app, rt = fast_app(
         fouc_script,
         tailwindLink,
         Script(src="https://cdn.jsdelivr.net/npm/d3@7"),
-        Script(dark_mode_toggle_script),
+        Script(dark_mode_toggle_script),            
         Style("""
             body {
                 overscroll-behavior: none;
                 overflow-x: hidden;
                 touch-action: pan-y;
+                min-width: 320px;  /* Set a minimum width for the app */
             }
         """)
     )
@@ -38,24 +39,49 @@ def CommonHeader():
                   cls="text-2xl font-bold text-gray-900 dark:text-white"),
                 cls="flex-grow"
             ),
-            ThemeToggle(),
+            Div(
+                ThemeToggle(),
+                cls="hidden md:block"  # Hide on mobile, show on larger screens
+            ),
             cls="flex justify-between items-center mb-4 p-6 bg-gradient-to-b from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent shadow-md"
         )
     )
 
 def create_nav():
-    return Nav(
-        Ul(
-            *[Li(A(page.display_name, 
-                   href=f"/{page.slug}", 
-                   hx_get=f"/{page.slug}", 
-                   hx_target="#content", 
-                   hx_push_url=f"/{page.slug}", 
-                   cls="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"))
-              for page in sorted(page_modules.values(), key=lambda p: p.page_number)],
-            cls="flex flex-wrap space-x-2 md:space-x-4"
+    nav_items = [
+        Li(A(page.display_name, 
+            href=f"/{page.slug}", 
+            hx_get=f"/{page.slug}", 
+            hx_target="#content", 
+            hx_push_url=f"/{page.slug}", 
+            cls="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"))
+        for page in sorted(page_modules.values(), key=lambda p: p.page_number)
+    ]
+
+    return Div(
+        # Desktop navigation
+        Nav(
+            Ul(*nav_items, cls="hidden md:flex md:space-x-4"),
+            cls="p-4 bg-gray-100 dark:bg-gray-700 overflow-x-auto hidden md:block"
         ),
-        cls="p-4 bg-gray-100 dark:bg-gray-700 overflow-x-auto"
+        # Mobile navigation (sidebar)
+        Div(
+            HamburgerMenu(),  # Move the HamburgerMenu here
+            Aside(
+                Nav(
+                    *[Div(A(page.display_name, 
+                        href=f"/{page.slug}", 
+                        hx_get=f"/{page.slug}", 
+                        hx_target="#content", 
+                        hx_push_url=f"/{page.slug}", 
+                        cls="text-gray-300 hover:text-white block py-2"))
+                    for page in sorted(page_modules.values(), key=lambda p: p.page_number)],
+                    Div(ThemeToggle(), cls="mt-4"),
+                ),
+                cls="sidebar md:hidden"
+            ),
+            cls="md:hidden"  # Only show on mobile
+        )
     )
 
 def create_layout(content, title):
