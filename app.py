@@ -91,7 +91,7 @@ def create_layout(content=None, current_slug=None):
     return Div(
         CommonHeader(),
         create_nav(current_slug),
-        Main(Div(content or "", id="content", cls="p-4 max-w-4xl mx-auto flex-grow")),
+        Main(Div(content or "", id="content", cls="p-4 max-w-6xl mx-auto flex-grow")),
         Footer(
             P("© 2024 Tutorial", cls="text-center p-4 text-gray-600 dark:text-gray-300"),
             cls="mt-auto bg-gradient-to-t from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent h-16"

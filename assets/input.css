@@ -17,6 +17,19 @@
   --hamburger-margin: 24px;
   --animation-timing: 200ms ease-in-out;
   --hamburger-height: calc(var(--bar-height) * 3 + var(--hamburger-gap) * 2);
+  --stroke-color: #000;
+  --text-color: #000;
+  --bg-color: #fff;
+  --slider-track-color: rgba(0, 0, 0, 0.1);
+ --slider-handle-color: rgba(0, 0, 0, 0.3);
+}
+
+.dark {
+    --stroke-color: #fff;
+    --text-color: #fff;
+    --bg-color: #374151;
+    --slider-track-color: rgba(255, 255, 255, 0.1);
+    --slider-handle-color: rgba(255, 255, 255, 0.3);
 }
 
 .hamburger-menu {
