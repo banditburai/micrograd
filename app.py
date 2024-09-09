@@ -4,7 +4,8 @@ from starlette.responses import PlainTextResponse
 from fasthtml.svg import *
 from components.theme_toggle import ThemeToggle, HamburgerMenu, fouc_script, dark_mode_toggle_script
 from src.page_utils import get_tutorial_pages, get_last_page
-
+from src.visualizations.yin_yang_viz import create_yin_yang_chart, generate_yin_yang_data
+from src.visualizations.viz_state_manager import VisualizationStateManager
 
 tailwindLink = Link(rel="stylesheet", href="assets/output.css", type="text/css")
 app, rt = fast_app(
@@ -30,6 +31,8 @@ page_modules = get_tutorial_pages()
 last_page = get_last_page(page_modules)
 
 app.state.page_modules = page_modules
+
+app.state.viz_state_manager = VisualizationStateManager()
 
 def CommonHeader():
     return Header(
@@ -131,6 +134,32 @@ def get(request):
     
     return Title("Micrograd Tutorial"), create_layout(content)
 
+@rt("/update_yin_yang")
+async def post(request):
+    form_data = await request.form()
+    viz_id = form_data.get("viz_id", "yin_yang_visualization")
+    
+    current_state = request.app.state.viz_state_manager.get_state(viz_id)
+    
+    n = int(form_data.get("n", current_state.params.get("n", 1000)))
+    r_small = float(form_data.get("r_small", current_state.params.get("r_small", 0.1)))
+    r_big = float(form_data.get("r_big", current_state.params.get("r_big", 0.5)))
+    zoom_level = float(form_data.get("zoom_level", current_state.zoom_level))
+    
+    params = {"n": n, "r_small": r_small, "r_big": r_big}
+    visible_controls = current_state.visible_controls
+
+    request.app.state.viz_state_manager.update_state(
+        viz_id,
+        zoom_level=zoom_level,
+        visible_controls=visible_controls,
+        params=params
+    )
+    
+    new_data = generate_yin_yang_data(**params)
+    updated_state = request.app.state.viz_state_manager.get_state(viz_id)
+    return create_yin_yang_chart(new_data, viz_id=viz_id, viz_state=updated_state.to_dict())
+
 @rt('/{slug}')
 async def page_handler(slug: str, request: Request):
     page = page_modules.get(slug)
@@ -162,6 +191,7 @@ def create_404_page():
           cls="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-block"),
         cls="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 max-w-md mx-auto"
     )
+
 
 @app.exception_handler(Exception)
 async def exception_handler(request, exc):

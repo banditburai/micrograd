@@ -1,6 +1,6 @@
 from fasthtml.common import *
-from utils import RNG, gen_data_yinyang
 import json
+from utils import RNG, gen_data_yinyang
 
 random = RNG(42)
 
@@ -9,16 +9,62 @@ def generate_yin_yang_data(n=1000, r_small=0.1, r_big=0.5):
     all_data = train + val + test
     return [{"x": point[0][0], "y": point[0][1], "class": point[1]} for point in all_data]
 
-def create_yin_yang_chart(data, size=600):
+def create_yin_yang_chart(data, size=600, viz_id="yin_yang", viz_state=None):        
+    if viz_state is None:
+        viz_state = {"zoom_level": 1.0, "visible_controls": [], "params": {}}
+
+    controls = Div(
+        Div(
+            Label("Number of points: ", Span(f"{viz_state['params'].get('n', 1000)}", id=f"{viz_id}-n-value")),
+            Input(type="range", name="n", value=f"{viz_state['params'].get('n', 1000)}", min="100", max="5000", step="100",
+                  oninput=f"document.getElementById('{viz_id}-n-value').textContent = this.value",
+                  hx_post="/update_yin_yang",
+                  hx_target=f"#{viz_id}-container",
+                  hx_trigger="change",
+                  hx_vals=f'js:{{"{viz_id}": "{viz_id}", "zoom_level": zoomLevel}}'),
+            cls="mt-2 flex items-center space-x-2",
+            style="display: inline-block" if "n" in viz_state["visible_controls"] else "display: none"
+        ),
+        Div(
+            Label("Small radius: ", Span(f"{viz_state['params'].get('r_small', 0.1)}", id=f"{viz_id}-r-small-value")),
+            Input(type="range", name="r_small", value=f"{viz_state['params'].get('r_small', 0.1)}", min="0.01", max="0.5", step="0.01",
+                  oninput=f"document.getElementById('{viz_id}-r-small-value').textContent = this.value",
+                  hx_post="/update_yin_yang",
+                  hx_target=f"#{viz_id}-container",
+                  hx_trigger="change",
+                  hx_vals=f'js:{{"{viz_id}": "{viz_id}", "zoom_level": zoomLevel}}'),
+            cls="mt-2 flex items-center space-x-2",
+            style="display: inline-block" if "r_small" in viz_state["visible_controls"] else "display: none"
+        ),
+        Div(
+            Label("Big radius: ", Span(f"{viz_state['params'].get('r_big', 0.5)}", id=f"{viz_id}-r-big-value")),
+            Input(type="range", name="r_big", value=f"{viz_state['params'].get('r_big', 0.5)}", min="0.1", max="1.0", step="0.01",
+                  oninput=f"document.getElementById('{viz_id}-r-big-value').textContent = this.value",
+                  hx_post="/update_yin_yang",
+                  hx_target=f"#{viz_id}-container",
+                  hx_trigger="change",
+                  hx_vals=f'js:{{"{viz_id}": "{viz_id}", "zoom_level": zoomLevel}}'),
+            cls="mt-2 flex items-center space-x-2",
+            style="display: inline-block" if "r_big" in viz_state["visible_controls"] else "display: none"
+        ),
+        cls="space-y-4"
+    )
+
     return Div(
         Div(
-            id="chart-svg-container",
+            id=f"{viz_id}-svg-container",
             cls="w-full h-[600px] flex justify-center items-center",
         ),
+        controls,
         Script(f"""
+        console.log('Initializing chart with viz_state:', {json.dumps(viz_state)});
+        var zoomLevel = {viz_state['zoom_level']};
+        console.log('Initial zoomLevel:', zoomLevel);
+        
         function createYinYangChart() {{
+            console.log('Creating chart with zoomLevel:', zoomLevel);
             const data = {json.dumps(data)};
-            const container = document.getElementById('chart-svg-container');
+            const container = document.getElementById('{viz_id}-svg-container');
             const containerSize = Math.min(container.clientWidth, container.clientHeight, {size});
             
             // Clear previous chart if any
@@ -27,18 +73,17 @@ def create_yin_yang_chart(data, size=600):
             const margin = {{top: 20, right: 20, bottom: 50, left: 20}};
             const chartSize = containerSize - margin.top - margin.bottom;
 
-            const svg = d3.select("#chart-svg-container")
+            const svg = d3.select("#{viz_id}-svg-container")
                 .append("svg")
                 .attr("width", containerSize)
                 .attr("height", containerSize)
                 .append("g")
                 .attr("transform", `translate(${{margin.left}},${{margin.top}})`);
 
-            let zoomLevel = 1;
             const zoom = d3.zoom()
                 .scaleExtent([0.5, 5])
                 .on("zoom", zoomed)
-                .filter(event => event.type === 'mousedown' ? false : true); // Disable dragging
+                .filter(event => event.type === 'mousedown' ? false : true);
 
             svg.call(zoom);
 
@@ -69,13 +114,18 @@ def create_yin_yang_chart(data, size=600):
             const plotGroup = svg.append("g");
 
             function zoomed(event) {{
+                console.log('Zoom event:', event.transform.k);
                 zoomLevel = event.transform.k;
-                plotGroup.attr("transform", event.transform);
+                
+                // Apply zoom and translation to keep the chart centered
+                plotGroup.attr("transform", `translate(${{event.transform.x + margin.left}}, ${{event.transform.y + margin.top}}) scale(${{event.transform.k}})`);
+                
                 updateDataPoints();
-                sliderGroup.select("circle").attr("cx", zoomScale(zoomLevel));
+                sliderHandle.attr("cx", zoomScale(zoomLevel));
             }}
 
             function updateDataPoints() {{
+                console.log('Updating data points with zoomLevel:', zoomLevel);
                 dataPoints.attr("r", 3 / zoomLevel);
                 hoverCircles.attr("r", 6 / zoomLevel);
             }}
@@ -87,9 +137,10 @@ def create_yin_yang_chart(data, size=600):
                 .attr("class", "data-point")
                 .attr("cx", d => xScale(d.x))
                 .attr("cy", d => yScale(d.y))
-                .attr("r", 3)
-                .attr("fill", d => colorScale(d.class));
-
+                .attr("r", 3 / zoomLevel)
+                .attr("fill", d => colorScale(d.class));    
+            
+                                
             // Add hover circles
             const hoverCircles = plotGroup.selectAll("circle.hover-circle")
                 .data(data)
@@ -97,7 +148,7 @@ def create_yin_yang_chart(data, size=600):
                 .attr("class", "hover-circle")
                 .attr("cx", d => xScale(d.x))
                 .attr("cy", d => yScale(d.y))
-                .attr("r", 6)
+                .attr("r", 6 / zoomLevel)
                 .attr("fill", "none")
                 .attr("stroke", "var(--stroke-color)")
                 .attr("stroke-width", 1)
@@ -192,11 +243,12 @@ def create_yin_yang_chart(data, size=600):
             const sliderHandle = sliderGroup.append("circle")
                 .attr("class", "handle")
                 .attr("r", 8)
-                .attr("cx", zoomScale(1))
+                .attr("cx", zoomScale(zoomLevel))
                 .attr("fill", "var(--slider-handle-color)")
                 .call(d3.drag()
                     .on("drag", (event) => {{
                         const newZoom = zoomScale.invert(event.x);
+                        console.log('Slider dragged, new zoom:', newZoom);
                         const newTransform = d3.zoomIdentity
                             .translate(chartSize / 2, chartSize / 2)
                             .scale(newZoom)
@@ -204,6 +256,15 @@ def create_yin_yang_chart(data, size=600):
                         svg.call(zoom.transform, newTransform);
                     }})
                 );
+
+            // Update zoom at the end of createYinYangChart
+            console.log('Applying initial zoom:', zoomLevel);
+            const initialTransform = d3.zoomIdentity
+                .translate(chartSize / 2, chartSize / 2)
+                .scale(zoomLevel)
+                .translate(-chartSize / 2, -chartSize / 2);
+            svg.call(zoom.transform, initialTransform);
+
         }}
 
         // Initial creation
@@ -212,6 +273,6 @@ def create_yin_yang_chart(data, size=600):
         // Redraw on window resize
         window.addEventListener('resize', createYinYangChart);
         """),
-        id="chart-container",
+        id=f"{viz_id}-container",
         cls="flex flex-col items-center w-full max-w-3xl mx-auto",
     )
