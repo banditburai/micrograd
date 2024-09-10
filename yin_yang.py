@@ -15,8 +15,10 @@ def generate_yin_yang_data(n=1000, r_small=0.1, r_big=0.5):
     all_data = train + val + test
     return [{"x": point[0][0], "y": point[0][1], "class": point[1]} for point in all_data]
 
-def create_chart(data):
+def create_chart(data, viz_id="yin_yang_visualization"):
     return Div(
+        Div(id=f"{viz_id}-svg-container", cls="w-full aspect-square"),
+        Div(id=f"{viz_id}-controls"),
         Script(f"""
         (function() {{
             const data = {json.dumps(data)};
@@ -24,7 +26,7 @@ def create_chart(data):
             const height = 600;
             const margin = {{top: 20, right: 120, bottom: 20, left: 20}};
 
-            const svg = d3.select("#chart")
+            const svg = d3.select("#{viz_id}-svg-container")
                 .append("svg")
                 .attr("width", width + margin.left + margin.right)
                 .attr("height", height + margin.top + margin.bottom)
@@ -77,8 +79,41 @@ def create_chart(data):
             }});
         }})();
         """),
-        id="chart"
+        create_zoom_slider(viz_id),
+        id=viz_id
     )
+
+def create_zoom_slider(viz_id):
+    return Script(f"""
+    function createZoomSlider(vizId) {{
+        const zoomSlider = d3.select(`#${{vizId}}-controls`)
+            .append("div")
+            .attr("class", "zoom-slider-container")
+            .style("margin-top", "10px");
+
+        zoomSlider.append("label")
+            .attr("for", `${{vizId}}-zoom-slider`)
+            .text("Zoom: ");
+
+        zoomSlider.append("input")
+            .attr("type", "range")
+            .attr("id", `${{vizId}}-zoom-slider`)
+            .attr("min", "0.1")
+            .attr("max", "2")
+            .attr("step", "0.1")
+            .attr("value", "1")
+            .attr("class", "custom-slider")
+            .on("input", function() {{
+                const zoom = parseFloat(this.value);
+                d3.select(`#${{vizId}}-svg-container svg`)
+                    .transition()
+                    .duration(200)
+                    .attr("transform", `scale(${{zoom}})`);
+            }});
+    }}
+
+    createZoomSlider("{viz_id}");
+    """)
 
 @rt('/')
 def get():

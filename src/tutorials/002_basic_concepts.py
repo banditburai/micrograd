@@ -27,7 +27,9 @@ async def step2(request: Request, form_data=None):
             cls="list-disc list-inside mb-4 text-gray-700 dark:text-gray-300"
         ),
         P("In this tutorial, we'll focus primarily on supervised learning.", cls="mb-4 text-gray-700 dark:text-gray-300"),
-        create_form(action="?step=3", answer=("text", "What type of learning involves labeled data?", True)),
+        create_form(action="?step=3", 
+                    answer=("text", "What type of learning involves labeled data?", True), 
+                    ),
         cls="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 max-w-md mx-auto"
     )
 

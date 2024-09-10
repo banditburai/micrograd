@@ -4,16 +4,16 @@ from starlette.responses import PlainTextResponse
 from fasthtml.svg import *
 from components.theme_toggle import ThemeToggle, HamburgerMenu, fouc_script, dark_mode_toggle_script
 from src.page_utils import get_tutorial_pages, get_last_page
-from src.visualizations.yin_yang_viz import create_yin_yang_chart, generate_yin_yang_data
 from src.visualizations.viz_state_manager import VisualizationStateManager
 
 tailwindLink = Link(rel="stylesheet", href="assets/output.css", type="text/css")
 app, rt = fast_app(
-    pico=False,
+    pico=False,    
     hdrs=(
         fouc_script,
         tailwindLink,
-        Script(src="https://cdn.jsdelivr.net/npm/d3@7"),
+        Script(src="https://cdn.jsdelivr.net/npm/d3@7"), 
+        Script(src="src/visualizations/yin_yang_chart.js"),             
         Script(dark_mode_toggle_script),         
         Style("""
             body {
@@ -33,6 +33,9 @@ last_page = get_last_page(page_modules)
 app.state.page_modules = page_modules
 
 app.state.viz_state_manager = VisualizationStateManager()
+
+chart_container = Div(id="chart-container", cls="w-full h-[400px]")
+
 
 def CommonHeader():
     return Header(
@@ -95,6 +98,7 @@ def create_layout(content=None, current_slug=None):
         CommonHeader(),
         create_nav(current_slug),
         Main(Div(content or "", id="content", cls="p-4 max-w-6xl mx-auto flex-grow")),
+        chart_container,
         Footer(
             P("© 2024 Tutorial", cls="text-center p-4 text-gray-600 dark:text-gray-300"),
             cls="mt-auto bg-gradient-to-t from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent h-16"
@@ -113,7 +117,7 @@ def get(request):
     else:
         first_page = sorted(page_modules.values(), key=lambda p: p.page_number)[0]
         content = Article(
-            H1("Micrograd Tutorial", cls="text-3xl font-bold mb-4 text-gray-900 dark:text-white"),
+            H1("Micrograd Tutorial", cls="text-3xl font-bold mb-4 text-gray-900 dark:text-white"),            
             P("Let's get started.", cls="mb-4 text-gray-300 dark:text-gray-300"),
             A("Start", 
               href=f"/{first_page.slug}", 
@@ -134,38 +138,15 @@ def get(request):
     
     return Title("Micrograd Tutorial"), create_layout(content)
 
-@rt("/update_yin_yang")
-async def post(request):
-    form_data = await request.form()
-    viz_id = form_data.get("viz_id", "yin_yang_visualization")
-    
-    current_state = request.app.state.viz_state_manager.get_state(viz_id)
-    
-    n = int(form_data.get("n", current_state.params.get("n", 1000)))
-    r_small = float(form_data.get("r_small", current_state.params.get("r_small", 0.1)))
-    r_big = float(form_data.get("r_big", current_state.params.get("r_big", 0.5)))
-    zoom_level = float(form_data.get("zoom_level", current_state.zoom_level))
-    
-    params = {"n": n, "r_small": r_small, "r_big": r_big}
-    visible_controls = current_state.visible_controls
-
-    request.app.state.viz_state_manager.update_state(
-        viz_id,
-        zoom_level=zoom_level,
-        visible_controls=visible_controls,
-        params=params
-    )
-    
-    new_data = generate_yin_yang_data(**params)
-    updated_state = request.app.state.viz_state_manager.get_state(viz_id)
-    return create_yin_yang_chart(new_data, viz_id=viz_id, viz_state=updated_state.to_dict())
-
 @rt('/{slug}')
 async def page_handler(slug: str, request: Request):
     page = page_modules.get(slug)
     if page is None:
         return create_404_page()
     
+    # Initialize content variable
+    content = None
+
     if request.method == 'GET':
         content = await page.handle_request(request)
     elif request.method == 'POST':
@@ -174,14 +155,18 @@ async def page_handler(slug: str, request: Request):
     else:
         return P(f"Error: Unsupported method {request.method}")
 
+    # Check if the request is an htmx request
     if request.headers.get('HX-Request') == 'true':
         updated_nav = create_nav(current_slug=slug)
+        
+        # Return only the content that needs to be updated
         return (
-            content,
-            Div(updated_nav, id="navigation", hx_swap_oob="true")
+            Div(content, id="content"),  # Update only the content
+            Div(updated_nav, id="navigation", hx_swap_oob="true")  # Update navigation
         )
     
-    return Title(f"{page.display_name}"), create_layout(content, slug)
+    # For non-htmx requests, return the full layout
+    return Title(f"{page.display_name}"), create_layout(content)
 
 def create_404_page():
     return Div(

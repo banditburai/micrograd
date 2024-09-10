@@ -42,18 +42,32 @@ class TutorialPage:
 
 def create_form_field(name, type, label, required):
     field_cls = "w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+    
     if type == "textarea":
         return Label(f"{label}: ", Textarea(name=name, required=required, cls=field_cls))
+    elif type == "hidden":
+        return Input(type="hidden", name=name)
     else:
         return Label(f"{label}: ", Input(type=type, name=name, required=required, cls=field_cls))
 
-def create_form(action, **fields):
+def create_form(action, **fields):    
+    form_fields = []
+    
+    for name, field_info in fields.items():
+        if len(field_info) == 3:
+            form_fields.append(create_form_field(name, field_info[0], field_info[1], field_info[2]))
+        else:
+            raise ValueError(f"Field '{name}' must have exactly 3 elements: (type, label, required)")
+
     return Form(
-        *[create_form_field(name, *field_info) for name, field_info in fields.items()],
+        *form_fields,
         Input(type="submit", value="Submit", cls="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mt-4"),
         action=action,
-        method="post",
-        cls="space-y-4"
+        method="post", 
+        cls="space-y-4",
+        hx_post=action, 
+        hx_target="#content", 
+        hx_swap="innerHTML" 
     )
 
 def create_navigation_link(text, href, hx_get, hx_target, hx_push_url):
