@@ -17,8 +17,7 @@ def EmojiPicker():
                         emojiDisplay.innerHTML = `You selected: ${event.detail.unicode}`; // Update the display area
                     }
                     // Store the selected emoji in hidden inputs for step 2
-                    const selectedEmojiInput = document.getElementsByName('selected_emoji')[0];
-                    const emojiDisplayInput = document.getElementsByName('emoji_display')[0];
+                    const selectedEmojiInput = document.getElementsByName('selected_emoji')[0];                    
                     
                     if (selectedEmojiInput) {
                         selectedEmojiInput.value = event.detail.unicode; // Set the value of the hidden input
@@ -26,11 +25,6 @@ def EmojiPicker():
                         console.error("Hidden input for selected emoji not found");
                     }
 
-                    if (emojiDisplayInput) {
-                        emojiDisplayInput.value = event.detail.unicode; // Set the value of the hidden input
-                    } else {
-                        console.error("Hidden input for emoji display not found");
-                    }
                 });
             </script>
         ''')

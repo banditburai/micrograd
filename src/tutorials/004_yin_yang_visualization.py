@@ -1,7 +1,7 @@
 from fasthtml.common import *
 from fasthtml.svg import *
 from src.page_utils import TutorialPage, create_next_button, create_form, create_page_navigation
-from src.visualizations.yin_yang_viz import create_yin_yang_chart, update_yin_yang_chart
+from src.visualizations.yin_yang_viz import create_yin_yang_chart
 import json
 
 page = TutorialPage(
@@ -11,12 +11,22 @@ page = TutorialPage(
     markdown_file="src/markdown/004_yin_yang_visualization.md"
 )
 
+def generate_update_chart_script(viz_state, viz_id):
+    return f"""
+    const vizState = {json.dumps(viz_state)};
+    document.getElementById("{viz_id}-svg-container").innerHTML = "";  // Clear previous chart
+    createYinYangChart(vizState); 
+"""
+
 page_classes = "bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 w-full max-w-4xl mx-auto"
 
 def get_viz_state(request, viz_id):
     return request.app.state.viz_state_manager.get_state(viz_id).to_dict()
 
 def update_viz_state(request, viz_id, **kwargs):
+    # Ensure params are included in the update
+    if 'params' not in kwargs:
+        kwargs['params'] = {"n": 1000, "r_small": 0.1, "r_big": 0.5}  # Default params if not provided
     request.app.state.viz_state_manager.update_state(viz_id, **kwargs)
     return get_viz_state(request, viz_id)
 
@@ -78,7 +88,8 @@ async def step_3(request, form_data=None):
                     id="form-container",
                     hx_swap_oob="true"  # OOB swap for the form
                 ),
-                Script(f'document.querySelector("yin-yang-chart").updateChart({json.dumps(viz_state["params"])});'),  # Update the chart
+                # Use the extracted update script
+                Script(generate_update_chart_script(viz_state, viz_id)),
                 cls=page_classes
             )
         else:
@@ -106,7 +117,7 @@ async def step_4(request, form_data=None):
         viz_state = update_viz_state(request, viz_id, visible_controls=["n", "r_small"])
         return Div(
             *page.get_chunk_content(5),
-            update_yin_yang_chart(viz_id, viz_state),
+            Script(generate_update_chart_script(viz_state, viz_id)),
             Div(
                 create_form("?step=5", small_radius_effect=("textarea", "Describe the effect of changing the small radius:", True)),
                 id="form-container",
@@ -118,7 +129,7 @@ async def step_4(request, form_data=None):
         viz_state = get_viz_state(request, viz_id)
         return Div(
             *page.get_chunk_content(4),
-            update_yin_yang_chart(viz_id, viz_state),
+            Script(generate_update_chart_script(viz_state, viz_id)),
             Div(
                 create_form("?step=4", points_effect=("textarea", "Describe the effect of increasing the number of points:", True)),
                 id="form-container",
@@ -133,7 +144,7 @@ async def step_5(request, form_data=None):
         viz_state = update_viz_state(request, viz_id, visible_controls=["n", "r_small", "r_big"])
         return Div(
             *page.get_chunk_content(6),
-            update_yin_yang_chart(viz_id, viz_state),
+            Script(generate_update_chart_script(viz_state, viz_id)),
             Div(
                 create_form("?step=6", big_radius_effect=("textarea", "Describe the effect of changing the big radius:", True)),
                 id="form-container",
@@ -145,7 +156,7 @@ async def step_5(request, form_data=None):
         viz_state = get_viz_state(request, viz_id)
         return Div(
             *page.get_chunk_content(5),
-            update_yin_yang_chart(viz_id, viz_state),
+            Script(generate_update_chart_script(viz_state, viz_id)),
             Div(
                 create_form("?step=5", small_radius_effect=("textarea", "Describe the effect of changing the small radius:", True)),
                 id="form-container",
@@ -167,7 +178,7 @@ async def step_6(request, form_data=None):
         viz_state = get_viz_state(request, viz_id)
         return Div(
             *page.get_chunk_content(6),
-            update_yin_yang_chart(viz_id, viz_state),
+            Script(generate_update_chart_script(viz_state, viz_id)),
             Div(
                 create_form("?step=6", big_radius_effect=("textarea", "Describe the effect of changing the big radius:", True)),
                 id="form-container",

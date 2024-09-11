@@ -5,6 +5,7 @@ from fasthtml.svg import *
 from components.theme_toggle import ThemeToggle, HamburgerMenu, fouc_script, dark_mode_toggle_script
 from src.page_utils import get_tutorial_pages, get_last_page
 from src.visualizations.viz_state_manager import VisualizationStateManager
+from src.visualizations.d3_viz import D3Visualization
 
 tailwindLink = Link(rel="stylesheet", href="assets/output.css", type="text/css")
 app, rt = fast_app(
@@ -12,8 +13,7 @@ app, rt = fast_app(
     hdrs=(
         fouc_script,
         tailwindLink,
-        Script(src="https://cdn.jsdelivr.net/npm/d3@7"), 
-        Script(src="src/visualizations/yin_yang_chart.js"),             
+        Script(src="https://cdn.jsdelivr.net/npm/d3@7"),                             
         Script(dark_mode_toggle_script),         
         Style("""
             body {
@@ -33,9 +33,6 @@ last_page = get_last_page(page_modules)
 app.state.page_modules = page_modules
 
 app.state.viz_state_manager = VisualizationStateManager()
-
-chart_container = Div(id="chart-container", cls="w-full h-[400px]")
-
 
 def CommonHeader():
     return Header(
@@ -97,8 +94,7 @@ def create_layout(content=None, current_slug=None):
     return Div(
         CommonHeader(),
         create_nav(current_slug),
-        Main(Div(content or "", id="content", cls="p-4 max-w-6xl mx-auto flex-grow")),
-        chart_container,
+        Main(Div(content or "", id="content", cls="p-4 max-w-6xl mx-auto flex-grow")),        
         Footer(
             P("© 2024 Tutorial", cls="text-center p-4 text-gray-600 dark:text-gray-300"),
             cls="mt-auto bg-gradient-to-t from-slate-300 via-slate-200 to-transparent dark:from-gray-700 dark:via-gray-800 dark:to-transparent h-16"
@@ -137,6 +133,28 @@ def get(request):
         )
     
     return Title("Micrograd Tutorial"), create_layout(content)
+
+@rt('/example')
+def example_view(request):
+    viz_id = "example_visualization"
+    params = {
+        # Define any parameters you want to pass to the visualization
+        "n": 100,  # Example parameter
+        # Add more parameters as needed
+    }
+    visualization = D3Visualization(viz_id, params).render("example_visualization.js")
+    return visualization
+
+@rt('/chart')
+def chart_view(request):
+    viz_id = "chart_visualization"
+    params = {
+        "n": 5,  # Number of points to display
+        "color": "blue",  # Color of the points
+        "radius": 5  # Radius of the points
+    }
+    visualization = D3Visualization(viz_id, params).render("chart_viz.js")
+    return visualization
 
 @rt('/{slug}')
 async def page_handler(slug: str, request: Request):
